@@ -7,139 +7,150 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract TokenFarm is ChainlinkClient, Ownable {
+    uint8 constant DAPP_PRICE = 100;
+
     string public name = "Dapp Token Farm";
     IERC20 public dappToken;
 
-    // token address -> mapping of user address -> amount
-    mapping(address => mapping(address => uint256)) public stakingBalance;
-    mapping(address => uint256) public uniqueTokensStaked;
-    mapping(address => address) public tokenPriceFeedMapping;
+    mapping(address => uint256) public stakingBalance;
+    mapping(address => uint256) public stakingStartTime;
+    mapping(address => uint256) public rewardBalance;
 
-    address[] allowedTokens;
+    address public priceFeedAddress;
+
+    address allowedToken;
     address[] public stakers;
+
+    /**
+     * @notice
+      rewardPerHour is 1000 because it is used to represent 0.001, since we only use integer numbers
+      This will give users 0.1% reward for each staked token / H
+     */
+    uint256 internal rewardPerHour = 1000;
 
     constructor(address _dappTokenAddress) public {
         dappToken = IERC20(_dappTokenAddress);
     }
 
-    function addAllowedTokens(address token) public onlyOwner {
-        allowedTokens.push(token);
+    function setAllowedToken(address token) public onlyOwner {
+        allowedToken = token;
     }
 
-    function setPriceFeedContract(address token, address priceFeed)
-        public
-        onlyOwner
-    {
-        tokenPriceFeedMapping[token] = priceFeed;
+    function setPriceFeedAddress(address priceFeed) public onlyOwner {
+        priceFeedAddress = priceFeed;
     }
 
-    function stakeTokens(uint256 _amount, address token) public {
-        // Require amount greater than 0
-        require(_amount > 0, "amount cannot be 0");
-        if (tokenIsAllowed(token)) {
-            // Update the amount of tokens this user has
-            updateUniqueTokensStaked(msg.sender, token);
-            // We need to approve this transfer because the contract is not the owner of those tokens
-            IERC20(token).transferFrom(msg.sender, address(this), _amount);
-            stakingBalance[token][msg.sender] =
-                stakingBalance[token][msg.sender] +
-                _amount;
-            if (uniqueTokensStaked[msg.sender] == 1) {
-                stakers.push(msg.sender);
-            }
-        }
+    function stakeTokens(uint256 amount, address token) public {
+        require(amount > 0, "amount cannot be 0");
+        require(allowedToken == token, "token not allowed");
+        require(
+            stakingBalance[msg.sender] == 0,
+            "You must unstake before staking again"
+        );
+
+        // We need to approve this transfer because the contract is not the owner of those tokens
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+        stakingBalance[msg.sender] = stakingBalance[msg.sender] + amount;
+
+        // block.timestamp = timestamp of the current block in seconds since the epoch
+        uint256 timestamp = block.timestamp;
+        stakingStartTime[msg.sender] = timestamp;
+
+        stakers.push(msg.sender);
+
+        // TODO Emit eventz
     }
 
-    // Unstaking Tokens (Withdraw)
-    function unstakeTokens(address token) public {
-        // Fetch staking balance
-        uint256 balance = stakingBalance[token][msg.sender];
+    function unstakeTokens() public {
+        uint256 balance = stakingBalance[msg.sender];
 
         require(balance > 0, "staking balance cannot be 0");
 
+        // Issue reward
+        uint256 rewardTokenAmout = computeRewardTokenAmount(msg.sender);
+        dappToken.transfer(msg.sender, rewardTokenAmout);
+
         // Contract is the owner so we don't need approval step
-        IERC20(token).transfer(msg.sender, balance);
-        stakingBalance[token][msg.sender] = 0;
-        uniqueTokensStaked[msg.sender] = uniqueTokensStaked[msg.sender] - 1;
+        IERC20(allowedToken).transfer(msg.sender, balance);
+
+        // Reset sender staking information
+        stakingBalance[msg.sender] = 0;
+        stakingStartTime[msg.sender] = 0;
+
+        // TODO emit event
     }
 
-    function getUserTotalValue(address user) public view returns (uint256) {
-        uint256 totalValue = 0;
-        if (uniqueTokensStaked[user] > 0) {
-            for (
-                uint256 allowedTokensIndex = 0;
-                allowedTokensIndex < allowedTokens.length;
-                allowedTokensIndex++
-            ) {
-                totalValue =
-                    totalValue +
-                    getUserStakingBalanceEthValue(
-                        user,
-                        allowedTokens[allowedTokensIndex]
-                    );
-            }
+    function computeRewardTokenAmount(address user)
+        internal
+        view
+        returns (uint256)
+    {
+        if (stakingBalance[user] == 0) {
+            return 0;
         }
-        return totalValue;
+
+        uint256 interest = calculateStakeInterest(user);
+
+        (uint256 price, uint256 decimals) = getTokenDollarValue();
+        uint256 interestValue = ((interest * price) / (10**decimals));
+
+        return interestValue / DAPP_PRICE;
     }
 
-    function tokenIsAllowed(address token) public returns (bool) {
-        for (
-            uint256 allowedTokensIndex = 0;
-            allowedTokensIndex < allowedTokens.length;
-            allowedTokensIndex++
-        ) {
-            if (allowedTokens[allowedTokensIndex] == token) {
-                return true;
-            }
-        }
-        return false;
+    /**
+     *
+     * Issue reward based off the value of those token
+     * Il faut stocker la date de stacking par token par user
+     * On va dire que chaque token staké rapporte 10% par jour
+     * et que le token de récompense = 0.1ETH
+     * U = stakend token amount
+     * valeur du token stacké en $ = U x 0,1 x Nb Jours stacked x Prix Token/ETH
+     * nombre de token de récompense = valeur du token stacké en ETH / 0.1
+     *
+     * @notice
+     * calculateStakeReward is used to calculate how much a user should be rewarded for their stakes
+     * and the duration the stake has been active
+     */
+    function calculateStakeInterest(address staker)
+        internal
+        view
+        returns (uint256)
+    {
+        // First calculate how long the stake has been active
+        // Use current seconds since epoch - the seconds since epoch the stake was made
+        // The output will be duration in SECONDS ,
+        // We will reward the user 0.1% per Hour So thats 0.1% per 3600 seconds
+        // the alghoritm is  seconds = block.timestamp - stake seconds (block.timestap - _stake.since)
+        // hours = Seconds / 3600 (seconds /3600) 3600 is an variable in Solidity names hours
+        // we then multiply each token by the hours staked , then divide by the rewardPerHour rate
+        uint256 stakerBalance = stakingBalance[staker];
+        uint256 stakerStartTime = stakingStartTime[staker];
+        uint256 totalSecondsStacked = block.timestamp - stakerStartTime;
+        uint256 stakerBalanceByHours = (totalSecondsStacked / 1 hours) *
+            stakerBalance;
+
+        return stakerBalanceByHours / rewardPerHour;
     }
 
-    function updateUniqueTokensStaked(address user, address token) internal {
-        if (stakingBalance[token][user] <= 0) {
-            uniqueTokensStaked[user] = uniqueTokensStaked[user] + 1;
-        }
-    }
-
-    function getUserStakingBalanceEthValue(address user, address token)
+    function getStakingBalanceValue(address user)
         public
         view
         returns (uint256)
     {
-        if (uniqueTokensStaked[user] <= 0) {
+        if (stakingBalance[user] == 0) {
             return 0;
         }
 
-        // We divide by the precision so we can get the actual reward we're going to send them
-        return
-            (stakingBalance[token][user] * getTokenEthPrice(token)) / (10**18);
+        (uint256 price, uint256 decimals) = getTokenDollarValue();
+        return ((stakingBalance[user] * price) / (10**decimals));
     }
 
-    // Issue reward based off the value of those token
-    function issueTokens() public onlyOwner {
-        // Issue tokens to all stakers
-        for (
-            uint256 stakersIndex = 0;
-            stakersIndex < stakers.length;
-            stakersIndex++
-        ) {
-            address recipient = stakers[stakersIndex];
-            dappToken.transfer(recipient, getUserTotalValue(recipient));
-        }
-    }
-
-    function getTokenEthPrice(address token) public view returns (uint256) {
-        address priceFeedAddress = tokenPriceFeedMapping[token];
+    function getTokenDollarValue() public view returns (uint256, uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(
             priceFeedAddress
         );
-        (
-            uint80 roundID,
-            int256 price,
-            uint256 startedAt,
-            uint256 timeStamp,
-            uint80 answeredInRound
-        ) = priceFeed.latestRoundData();
-        return uint256(price);
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        uint256 decimals = uint256(priceFeed.decimals());
+        return (uint256(price), decimals);
     }
 }
