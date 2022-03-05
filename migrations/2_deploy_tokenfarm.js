@@ -6,7 +6,7 @@ module.exports = async function (deployer, network, accounts) {
     const dappToken = await DappToken.deployed();
     await deployer.deploy(TokenFarm, dappToken.address);
     const tokenFarm = await TokenFarm.deployed();
-    await dappToken.transfer(tokenFarm.address, "1000000000000000000000000");
+    await dappToken.transfer(tokenFarm.address, "1000000000000000000000");
 
     // @see https://docs.chain.link/docs/ethereum-addresses/
     if (network.startsWith("kovan")) {

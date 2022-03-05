@@ -16,6 +16,9 @@ install: ## Install node_modules in root folder and client subfolder
 	cd client && $(NPM) ci
 
 ## —— Truffle —————————————————————————————————————————————————————
+compile: ## Run tests
+	$(TRUFFLE) test
+
 compile: ## Compile smart contracts located in contracts folder
 	$(TRUFFLE) compile
 

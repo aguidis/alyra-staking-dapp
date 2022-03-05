@@ -5,7 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract DappToken is ERC20 {
     constructor() ERC20("DApp Token", "DAPP") {
-        // Initial supply : 1 Million
-        _mint(msg.sender, 1000000000000000000000000);
+        // Fixed supply : 1000 tokens
+        // @link https://vitto.cc/how-to-create-and-deploy-an-erc20-token-in-20-minutes/#note-on-decimals
+        _mint(msg.sender, 1000 * 10**18);
     }
 }
