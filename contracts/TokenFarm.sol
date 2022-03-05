@@ -6,43 +6,49 @@ import "@chainlink/contracts/src/v0.8/ChainlinkClient.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+/// @title A staking contract for the ERC-20 FAU token
+/// @author Adrien Guidis
+/// @notice You can use this contract for only the most basic ERC-20 staking simulation
+/// @custom:experimental This is an educational project.
 contract TokenFarm is ChainlinkClient, Ownable {
-    uint8 constant DAPP_PRICE = 100;
-
-    string public name = "Dapp Token Farm";
     IERC20 public dappToken;
+
+    /// @notice The reward token DAPP's value is 100$
+    uint8 constant DAPP_PRICE = 100;
+    /// @notice It represents 0.001, since we only use integer numbers. This will give users 0.1% reward for each staked token / H
+    uint16 constant rewardPerHour = 1000;
+
+    /// @notice Only a spcific ERC-20 token is allowed to be staked in this contract
+    address public allowedToken;
+    /// @notice Chainlink price feed to chack the value of our staked token in dollars (DAI/USD)
+    address public priceFeedAddress;
+
+    /// @notice Stores all current stakers addresses
+    address[] public stakers;
+    /// @notice uniqueStaker is used to keep track of the INDEX for the stakers in the stakers array
+    mapping(address => uint256) internal stakerIndexes;
 
     mapping(address => uint256) public stakingBalance;
     mapping(address => uint256) public stakingStartTime;
     mapping(address => uint256) public rewardBalance;
 
-    address public priceFeedAddress;
-
-    address allowedToken;
-    address[] public stakers;
-
-    /**
-     * @notice
-      rewardPerHour is 1000 because it is used to represent 0.001, since we only use integer numbers
-      This will give users 0.1% reward for each staked token / H
-     */
-    uint256 internal rewardPerHour = 1000;
+    /// @notice Staked event is triggered whenever a user stakes tokens, address is indexed to make it filterable
+    event Staked(address indexed user, uint256 timestamp, uint256 amount);
+    /// @notice Unstaked event is triggered whenever a user unstakes tokens, address is indexed to make it filterable
+    event Unstaked(
+        address indexed user,
+        uint256 timestamp,
+        uint256 amount,
+        uint256 rewardAmount
+    );
 
     constructor(address _dappTokenAddress) public {
         dappToken = IERC20(_dappTokenAddress);
     }
 
-    function setAllowedToken(address token) public onlyOwner {
-        allowedToken = token;
-    }
-
-    function setPriceFeedAddress(address priceFeed) public onlyOwner {
-        priceFeedAddress = priceFeed;
-    }
-
+    /// @notice stakeTokens is used to stake a token amount from a user
     function stakeTokens(uint256 amount, address token) public {
         require(amount > 0, "amount cannot be 0");
-        require(allowedToken == token, "token not allowed");
         require(
             stakingBalance[msg.sender] == 0,
             "You must unstake before staking again"
@@ -53,33 +59,77 @@ contract TokenFarm is ChainlinkClient, Ownable {
         stakingBalance[msg.sender] = stakingBalance[msg.sender] + amount;
 
         // block.timestamp = timestamp of the current block in seconds since the epoch
-        uint256 timestamp = block.timestamp;
-        stakingStartTime[msg.sender] = timestamp;
+        stakingStartTime[msg.sender] = block.timestamp;
 
         stakers.push(msg.sender);
 
-        // TODO Emit eventz
+        stakerIndexes[msg.sender] = stakers.length - 1;
+
+        emit Staked(msg.sender, amount, block.timestamp);
     }
 
+    /// @notice unstakeTokens is used to withdraw stakes from the account holder
     function unstakeTokens() public {
-        uint256 balance = stakingBalance[msg.sender];
-
-        require(balance > 0, "staking balance cannot be 0");
+        require(stakingBalance[msg.sender] > 0, "staking balance cannot be 0");
 
         // Issue reward
-        uint256 rewardTokenAmout = computeRewardTokenAmount(msg.sender);
-        dappToken.transfer(msg.sender, rewardTokenAmout);
+        uint256 rewardAmount = computeRewardTokenAmount(msg.sender);
+        dappToken.transfer(msg.sender, rewardAmount);
 
         // Contract is the owner so we don't need approval step
-        IERC20(allowedToken).transfer(msg.sender, balance);
+        IERC20(allowedToken).transfer(msg.sender, stakingBalance[msg.sender]);
 
         // Reset sender staking information
         stakingBalance[msg.sender] = 0;
         stakingStartTime[msg.sender] = 0;
 
-        // TODO emit event
+        // Finally remove sender from our stakers array
+        uint256 stakerIndex = stakerIndexes[msg.sender];
+        stakers[stakerIndex] = stakers[stakers.length - 1];
+        stakers.pop();
+
+        emit Unstaked(
+            msg.sender,
+            block.timestamp,
+            stakingBalance[msg.sender],
+            rewardAmount
+        );
     }
 
+    /// @notice Returns the staked tokens value in dollars
+    function getStakingBalanceValue(address user)
+        public
+        view
+        returns (uint256)
+    {
+        if (stakingBalance[user] == 0) {
+            return 0;
+        }
+
+        (uint256 price, uint256 decimals) = getTokenDollarValue();
+        return ((stakingBalance[user] * price) / (10**decimals));
+    }
+
+    /// @notice Returns the current DAI dollar price from Chailink price feed
+    /// @dev The price calcultation is based the pair DAI/USD
+    function getTokenDollarValue() public view returns (uint256, uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(
+            priceFeedAddress
+        );
+        (, int256 price, , , ) = priceFeed.latestRoundData();
+        uint256 decimals = uint256(priceFeed.decimals());
+        return (uint256(price), decimals);
+    }
+
+    function setAllowedToken(address token) public onlyOwner {
+        allowedToken = token;
+    }
+
+    function setPriceFeedAddress(address priceFeed) public onlyOwner {
+        priceFeedAddress = priceFeed;
+    }
+
+    /// @notice Compute how much a user should be rewarded for their stake
     function computeRewardTokenAmount(address user)
         internal
         view
@@ -89,7 +139,7 @@ contract TokenFarm is ChainlinkClient, Ownable {
             return 0;
         }
 
-        uint256 interest = calculateStakeInterest(user);
+        uint256 interest = computeStakeInterest(user);
 
         (uint256 price, uint256 decimals) = getTokenDollarValue();
         uint256 interestValue = ((interest * price) / (10**decimals));
@@ -97,21 +147,8 @@ contract TokenFarm is ChainlinkClient, Ownable {
         return interestValue / DAPP_PRICE;
     }
 
-    /**
-     *
-     * Issue reward based off the value of those token
-     * Il faut stocker la date de stacking par token par user
-     * On va dire que chaque token staké rapporte 10% par jour
-     * et que le token de récompense = 0.1ETH
-     * U = stakend token amount
-     * valeur du token stacké en $ = U x 0,1 x Nb Jours stacked x Prix Token/ETH
-     * nombre de token de récompense = valeur du token stacké en ETH / 0.1
-     *
-     * @notice
-     * calculateStakeReward is used to calculate how much a user should be rewarded for their stakes
-     * and the duration the stake has been active
-     */
-    function calculateStakeInterest(address staker)
+    /// @notice Compute the stake interest based on the duration of the active stake
+    function computeStakeInterest(address staker)
         internal
         view
         returns (uint256)
@@ -130,27 +167,5 @@ contract TokenFarm is ChainlinkClient, Ownable {
             stakerBalance;
 
         return stakerBalanceByHours / rewardPerHour;
-    }
-
-    function getStakingBalanceValue(address user)
-        public
-        view
-        returns (uint256)
-    {
-        if (stakingBalance[user] == 0) {
-            return 0;
-        }
-
-        (uint256 price, uint256 decimals) = getTokenDollarValue();
-        return ((stakingBalance[user] * price) / (10**decimals));
-    }
-
-    function getTokenDollarValue() public view returns (uint256, uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(
-            priceFeedAddress
-        );
-        (, int256 price, , , ) = priceFeed.latestRoundData();
-        uint256 decimals = uint256(priceFeed.decimals());
-        return (uint256(price), decimals);
     }
 }

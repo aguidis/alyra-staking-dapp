@@ -4,11 +4,11 @@ Un utilisateur pourra stoker un token ERC-20 spécifique et pourra générer des
 ## Règles
 Pour des raisons pédagogiques et de simplicité, certains raccourcis sont faits :
 
-- un utilisateur doit unstake les jetons qu'il a déjà staké avant de les staker à nouveau.
-- Le jeton autorisé est le jeton ERC-20 appelé [FAU](https://erc20faucet.com/)
-- 1 FAU = 1 DAI.
-- Le jeton de récompense est appelé DAPP
-- 1 DAPP = 100$.
+- un utilisateur doit unstake les jetons qu'il a déjà staké avant de les staker à nouveau
+- Le token autorisé est le token ERC-20 [FAU](https://erc20faucet.com/)
+- 1 FAU = 1 DAI
+- Le token de récompense est celui que nous avons créé : DAPP
+- 1 DAPP = 100$
 
 ## Stack
 - Ethereum in memory blockchain, Ganache Version 2.5.4 (GUI or CLI)
