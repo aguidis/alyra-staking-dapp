@@ -48,7 +48,8 @@ contract TokenFarm is ChainlinkClient, Ownable {
 
     /// @notice stakeTokens is used to stake a token amount from a user
     function stakeTokens(uint256 amount, address token) public {
-        require(amount > 0, "amount cannot be 0");
+        require(token == allowedToken, "ERC20 Token not allowed");
+        require(amount > 0, "Amount cannot be empty");
         require(
             stakingBalance[msg.sender] == 0,
             "You must unstake before staking again"
@@ -65,10 +66,10 @@ contract TokenFarm is ChainlinkClient, Ownable {
 
         stakerIndexes[msg.sender] = stakers.length - 1;
 
-        emit Staked(msg.sender, amount, block.timestamp);
+        emit Staked(msg.sender, block.timestamp, amount);
     }
 
-    /// @notice unstakeTokens is used to withdraw stakes from the account holder
+    /// @notice Used to withdraw stakes from the account holder
     function unstakeTokens() public {
         require(stakingBalance[msg.sender] > 0, "staking balance cannot be 0");
 
@@ -139,7 +140,7 @@ contract TokenFarm is ChainlinkClient, Ownable {
             return 0;
         }
 
-        uint256 interest = computeStakeInterest(user);
+        uint256 interest = computeStakeInterest(user, block.timestamp);
 
         (uint256 price, uint256 decimals) = getTokenDollarValue();
         uint256 interestValue = ((interest * price) / (10**decimals));
@@ -148,8 +149,8 @@ contract TokenFarm is ChainlinkClient, Ownable {
     }
 
     /// @notice Compute the stake interest based on the duration of the active stake
-    function computeStakeInterest(address staker)
-        internal
+    function computeStakeInterest(address staker, uint256 endTime)
+        public
         view
         returns (uint256)
     {
@@ -162,7 +163,7 @@ contract TokenFarm is ChainlinkClient, Ownable {
         // we then multiply each token by the hours staked , then divide by the rewardPerHour rate
         uint256 stakerBalance = stakingBalance[staker];
         uint256 stakerStartTime = stakingStartTime[staker];
-        uint256 totalSecondsStacked = block.timestamp - stakerStartTime;
+        uint256 totalSecondsStacked = endTime - stakerStartTime;
         uint256 stakerBalanceByHours = (totalSecondsStacked / 1 hours) *
             stakerBalance;
 

@@ -1,3 +1,6 @@
+const { assert } = require('chai');
+const truffleAssert = require('truffle-assertions');
+
 const DappToken = artifacts.require("DappToken");
 const MockERC20 = artifacts.require("MockERC20");
 const TokenFarm = artifacts.require("TokenFarm");
@@ -9,6 +12,7 @@ function tokens(n) {
 contract("TokenFarm", async accounts => {
     let dappToken, mockERC20, tokenFarm;
 
+    const owner = accounts[0]
     const alice = accounts[1]
 
     before(async () => {
@@ -17,11 +21,11 @@ contract("TokenFarm", async accounts => {
         mockERC20 = await MockERC20.new();
         tokenFarm = await TokenFarm.new(dappToken.address);
 
-        // Transfer 100 MockERC20 tokens to owner
+        // Transfer 100 MockERC20 tokens to alice
         await mockERC20.transfer(alice, tokens("100"));
 
-        // Transfer all Dapp tokens to farm (1000 tokens)
-        await dappToken.transfer(tokenFarm.address, tokens("1000"));
+        // Transfer 900 Dapp tokens to farm (owner will keep 100 tokens)
+        await dappToken.transfer(tokenFarm.address, tokens("900"));
 
         // Set allowed token in TokenFarm
         await tokenFarm.setAllowedToken(mockERC20.address)
@@ -31,6 +35,11 @@ contract("TokenFarm", async accounts => {
         it("has a name", async () => {
             const name = await dappToken.name();
             assert.equal(name, "DApp Token");
+        });
+
+        it("Owner has 100 tokens", async () => {
+            let balance = await dappToken.balanceOf(owner);
+            assert.equal(balance.toString(), tokens("100"));
         });
     });
 
@@ -59,36 +68,48 @@ contract("TokenFarm", async accounts => {
     });
 
     describe("Staking", async () => {
-        /*
-        it("Staking 100x2", async () => {
-            devToken = await DevToken.deployed();
+        it("cannot stake not allowed token", async () => {
+            try {
+                const amountToStake = tokens("10");
+                await tokenFarm.stakeTokens(amountToStake, dappToken.address, { from: owner });
+            } catch (error) {
+                assert.equal(error.reason, "ERC20 Token not allowed");
+            }
+        });
 
-            // Stake 100 is used to stake 100 tokens twice and see that stake is added correctly and money burned
-            let owner = accounts[0];
-            // Set owner, user and a stake_amount
-            let stake_amount = 100;
-            // Add som tokens on account 1 asweel
-            await devToken.mint(accounts[1], 1000);
-            // Get init balance of user
-            balance = await devToken.balanceOf(owner)
+        it("cannot stake empty amount", async () => {
+            try {
+                await tokenFarm.stakeTokens(0, mockERC20.address, { from: alice });
+            } catch (error) {
+                assert.equal(error.reason, "Amount cannot be empty");
+            }
+        });
 
-            // Stake the amount, notice the FROM parameter which specifes what the msg.sender address will be
+        it.only("Alice can stake 10 mERC tokens", async () => {
+            const amountToStake = tokens("10");
 
-            stakeID = await devToken.stake(stake_amount, { from: owner });
-            // Assert on the emittedevent using truffleassert
-            // This will capture the event and inside the event callback we can use assert on the values returned
+            await mockERC20.approve(tokenFarm.address, amountToStake, { from: alice })
+            const result = await tokenFarm.stakeTokens(amountToStake, mockERC20.address, { from: alice });
+
             truffleAssert.eventEmitted(
-                stakeID,
+                result,
                 "Staked",
                 (ev) => {
                     // In here we can do our assertion on the ev variable (its the event and will contain the values we emitted)
-                    assert.equal(ev.amount, stake_amount, "Stake amount in event was not correct");
-                    assert.equal(ev.index, 1, "Stake index was not correct");
+                    assert.equal(ev.amount, amountToStake, "Stake amount in event was not correct");
                     return true;
                 },
-                "Stake event should have triggered");
+                "Staked event should have triggered");
 
+            const aliceStakingBalance = await tokenFarm.stakingBalance(alice)
+
+            assert.equal(aliceStakingBalance, amountToStake);
         });
-        */
+
+        it.only("Alice won some interest after 2 hours", async () => {
+
+            // computeStakeInterest
+            console.log('TODO')
+        });
     });
 });
