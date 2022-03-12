@@ -42,6 +42,16 @@ contract TokenFarm is ChainlinkClient, Ownable {
         uint256 rewardAmount
     );
 
+    event Debug(
+        uint256 stakerStartTime,
+        uint256 stakerEndTime,
+        uint256 stakePeriodInSeconds,
+        uint256 stakePeriodInHours,
+        uint256 amount,
+        uint256 stakerBalanceByHours,
+        uint256 rewardAmount
+    );
+
     constructor(address _dappTokenAddress) public {
         dappToken = IERC20(_dappTokenAddress);
     }
@@ -154,19 +164,24 @@ contract TokenFarm is ChainlinkClient, Ownable {
         view
         returns (uint256)
     {
+        if (stakingBalance[staker] == 0) {
+            return 0;
+        }
+
         // First calculate how long the stake has been active
         // Use current seconds since epoch - the seconds since epoch the stake was made
         // The output will be duration in SECONDS ,
         // We will reward the user 0.1% per Hour So thats 0.1% per 3600 seconds
-        // the alghoritm is  seconds = block.timestamp - stake seconds (block.timestap - _stake.since)
-        // hours = Seconds / 3600 (seconds /3600) 3600 is an variable in Solidity names hours
+        // the alghoritm is  seconds = endTime - start stake time (in seconds)
+        // hours = seconds / 3600 (seconds /3600) 3600 is an variable in Solidity names hours
         // we then multiply each token by the hours staked , then divide by the rewardPerHour rate
         uint256 stakerBalance = stakingBalance[staker];
         uint256 stakerStartTime = stakingStartTime[staker];
-        uint256 totalSecondsStacked = endTime - stakerStartTime;
-        uint256 stakerBalanceByHours = (totalSecondsStacked / 1 hours) *
-            stakerBalance;
+        uint256 stakePeriodInSeconds = endTime - stakerStartTime;
+        uint256 stakePeriodInHours = stakePeriodInSeconds / 3600;
+        uint256 stakerBalanceByHours = stakePeriodInHours * stakerBalance;
+        uint256 reward = stakerBalanceByHours / rewardPerHour;
 
-        return stakerBalanceByHours / rewardPerHour;
+        return reward;
     }
 }
