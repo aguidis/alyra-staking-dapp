@@ -8,6 +8,10 @@ module.exports = async function (deployer, network, accounts) {
     const tokenFarm = await TokenFarm.deployed();
     await dappToken.transfer(tokenFarm.address, "1000000000000000000000");
 
+    if (network.startsWith("develop")) {
+        await tokenFarm.setAllowedToken(dappToken.address);
+    }
+
     // @see https://docs.chain.link/docs/ethereum-addresses/
     if (network.startsWith("kovan")) {
         // FAU Token address

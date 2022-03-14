@@ -1,31 +1,47 @@
+import { ethers } from 'ethers'
 import { atom } from 'jotai'
 
-import Web3 from 'web3'
 import detectEthereumProvider from '@metamask/detect-provider'
-import tokenFarm from './contracts/TokenFarm.json'
+import TokenFarmArtifact from './contracts/TokenFarm.json'
 
 import { addressEqual } from './helpers/address'
 
+export const providerAtom = atom(async () => {
+    const metamask = await detectEthereumProvider({
+        mustBeMetaMask: true,
+    })
+
+    if (metamask === null) {
+        throw new Error('Coucou pas metamask')
+    }
+
+    return new ethers.providers.Web3Provider(metamask, 'any')
+})
+
+export const networkIdAtom = atom(async (get) => {
+    const provider = get(providerAtom)
+    const network = await provider.getNetwork()
+
+    return network.chainId
+})
+
+export const contractAtom = atom((get) => {
+    const provider = get(providerAtom)
+    const networkId = get(networkIdAtom)
+    const contractAddress = TokenFarmArtifact.networks[networkId]
+
+    const signer = provider.getSigner()
+
+    return new ethers.Contract(contractAddress, TokenFarmArtifact.abi, signer)
+})
+
 export const loggedInAccountAtom = atom(null)
+export const accountBalanceAtom = atom(0)
 export const accountDaiBalanceAtom = atom(0)
 export const accountDappBalanceAtom = atom(0)
 
-export const web3InstanceAtom = atom(async () => {
-    const provider = await detectEthereumProvider()
-
-    // Get network provider and web3 instance.
-    const web3 = new Web3(provider)
-    web3.eth.handleRevert = true
-
-    return web3
-})
-
 export const tokenFarmContractAtom = atom(async (get) => {
-    const web3 = get(web3InstanceAtom)
-    const networkId = await web3.eth.net.getId()
-    const deployedNetwork = tokenFarm.networks[networkId]
-
-    return new web3.eth.Contract(tokenFarm.abi, deployedNetwork && deployedNetwork.address)
+    // TODO avec ethers.js
 })
 
 export const contractOwnerAtom = atom(async (get) => {
@@ -44,4 +60,3 @@ export const isOwnerAtom = atom((get) => {
 
     return addressEqual(contract, account)
 })
-

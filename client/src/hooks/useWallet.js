@@ -1,3 +1,5 @@
+import { ethers } from 'ethers'
+
 import { useAtom } from 'jotai'
 import { useAtomValue } from 'jotai/utils'
 
@@ -10,6 +12,15 @@ const useWallet = () => {
 
     async function connectWallet() {
         try {
+            // A Web3Provider wraps a standard Web3 provider, which is
+            // what MetaMask injects as window.ethereum into each page
+            const provider = new ethers.providers.Web3Provider(window.ethereum)
+
+            // MetaMask requires requesting permission to connect users accounts
+            await provider.send('eth_requestAccounts', [])
+
+            // TODO load tout cas dans state.js et gerer erreur avec error mes couilles boudaries
+
             // ethereum.enable(); (DEPRECATED), do instead :
             // @link https://docs.metamask.io/guide/ethereum-provider.html#ethereum-enable-deprecated
             // why returned accounts are lower cased ?

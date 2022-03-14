@@ -1,15 +1,12 @@
-import { formatEther } from '@ethersproject/units'
 import Identicon from './Identicon'
 
-import useWallet from '../../hooks/useWallet'
-
 export default function ConnectButton() {
-    const { account, balance, connectWallet } = useWallet()
+    const account = '0x99A87097f773E2182Aa320e0df0D489A9c966FAD'
 
     return account ? (
         <div className="wallet-box">
             <div className="wb_account-balance">
-                <p>{balance && parseFloat(formatEther(balance)).toFixed(3)} ETH</p>
+                <p>99.95 ETH</p>
             </div>
 
             <div className="wb_account-address">
