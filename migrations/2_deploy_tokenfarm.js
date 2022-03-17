@@ -1,15 +1,27 @@
+const MockERC20Token = artifacts.require('test/MockERC20Token')
 const DappToken = artifacts.require("DappToken");
 const TokenFarm = artifacts.require("TokenFarm");
+
+function tokens(n) {
+    return web3.utils.toWei(n, "ether");
+}
 
 module.exports = async function (deployer, network, accounts) {
     // Deploy TokenFarm
     const dappToken = await DappToken.deployed();
     await deployer.deploy(TokenFarm, dappToken.address);
     const tokenFarm = await TokenFarm.deployed();
-    await dappToken.transfer(tokenFarm.address, "1000000000000000000000");
+    await dappToken.transfer(tokenFarm.address, tokens("1000"));
 
     if (network.startsWith("develop")) {
-        await tokenFarm.setAllowedToken(dappToken.address);
+        const alice = accounts[1]
+
+        const mockERC20Token = await deployer.deploy(MockERC20Token);
+
+        // Transfer 100 mockERC20Token tokens to alice
+        await mockERC20Token.transfer(alice, tokens("100"))
+
+        await tokenFarm.setAllowedToken(mockERC20Token.address);
     }
 
     // @see https://docs.chain.link/docs/ethereum-addresses/

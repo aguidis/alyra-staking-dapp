@@ -25,12 +25,21 @@ contract TokenFarm is ChainlinkClient, Ownable {
 
     /// @notice Stores all current stakers addresses
     address[] public stakers;
-    /// @notice uniqueStaker is used to keep track of the INDEX for the stakers in the stakers array
-    mapping(address => uint256) internal stakerIndexes;
 
-    mapping(address => uint256) public stakingBalance;
-    mapping(address => uint256) public stakingStartTime;
-    mapping(address => uint256) public rewardBalance;
+    /// @notice This struct will contain the amount staked and a timestamp, the date of staking
+    struct Stake {
+        uint256 amount;
+        uint256 since;
+    }
+    /// @notice This struct will contain the global staking balance and the number of stakes per user
+    struct StakeSummary {
+        uint256 balance;
+        uint256 rewardBalance;
+    }
+    /// @notice stakeHolders is used to keep track of the stakes made by each users
+    mapping(address => Stake[]) internal stakeHolders;
+    /// @notice stakeSummaries is used to aggregate staking information for each users
+    mapping(address => StakeSummary) internal stakeSummaries;
 
     /// @notice Staked event is triggered whenever a user stakes tokens, address is indexed to make it filterable
     event Staked(address indexed user, uint256 timestamp, uint256 amount);
@@ -38,17 +47,6 @@ contract TokenFarm is ChainlinkClient, Ownable {
     event Unstaked(
         address indexed user,
         uint256 timestamp,
-        uint256 amount,
-        uint256 rewardAmount
-    );
-
-    event Debug(
-        uint256 stakerStartTime,
-        uint256 stakerEndTime,
-        uint256 stakePeriodInSeconds,
-        uint256 stakePeriodInHours,
-        uint256 amount,
-        uint256 stakerBalanceByHours,
         uint256 rewardAmount
     );
 
@@ -57,54 +55,54 @@ contract TokenFarm is ChainlinkClient, Ownable {
     }
 
     /// @notice stakeTokens is used to stake a token amount from a user
-    function stakeTokens(uint256 amount, address token) public {
+    function stake(uint256 amount, address token) public {
         require(token == allowedToken, "ERC20 Token not allowed");
         require(amount > 0, "Amount cannot be empty");
-        require(
-            stakingBalance[msg.sender] == 0,
-            "You must unstake before staking again"
-        );
 
         // We need to approve this transfer because the contract is not the owner of those tokens
         IERC20(token).transferFrom(msg.sender, address(this), amount);
-        stakingBalance[msg.sender] = stakingBalance[msg.sender] + amount;
 
-        // block.timestamp = timestamp of the current block in seconds since the epoch
-        stakingStartTime[msg.sender] = block.timestamp;
+        // Keep track of each user stakes
+        stakeHolders[msg.sender].push(Stake(amount, block.timestamp));
 
-        stakers.push(msg.sender);
-
-        stakerIndexes[msg.sender] = stakers.length - 1;
+        // Update user staking summary
+        StakeSummary storage userStakeSummary = stakeSummaries[msg.sender];
+        userStakeSummary.balance = userStakeSummary.balance + amount;
 
         emit Staked(msg.sender, block.timestamp, amount);
     }
 
-    /// @notice Used to withdraw stakes from the account holder
-    function unstakeTokens() public {
-        require(stakingBalance[msg.sender] > 0, "staking balance cannot be 0");
+    /// @notice Used to withdraw a specific stake
+    function withdraw(uint256 stakeIndex) public {
+        // Fetch user stake summary
+        StakeSummary storage userStakeSummary = stakeSummaries[msg.sender];
+        require(userStakeSummary.balance > 0, "You need to stake first");
+
+        // Grab the desired Stake with the given index
+        Stake memory selectedStake = stakeHolders[msg.sender][stakeIndex];
+
+        require(selectedStake.amount > 0, "Selected stake is invalid");
 
         // Issue reward
-        uint256 rewardAmount = computeRewardTokenAmount(msg.sender);
+        uint256 rewardAmount = computeRewardTokenAmount(selectedStake);
         dappToken.transfer(msg.sender, rewardAmount);
 
         // Contract is the owner so we don't need approval step
-        IERC20(allowedToken).transfer(msg.sender, stakingBalance[msg.sender]);
+        IERC20(allowedToken).transfer(msg.sender, selectedStake.amount);
 
-        // Reset sender staking information
-        stakingBalance[msg.sender] = 0;
-        stakingStartTime[msg.sender] = 0;
+        // Update sender staking information
+        userStakeSummary.balance =
+            userStakeSummary.balance -
+            selectedStake.amount;
 
         // Finally remove sender from our stakers array
-        uint256 stakerIndex = stakerIndexes[msg.sender];
-        stakers[stakerIndex] = stakers[stakers.length - 1];
-        stakers.pop();
+        Stake[] storage userStakes = stakeHolders[msg.sender];
 
-        emit Unstaked(
-            msg.sender,
-            block.timestamp,
-            stakingBalance[msg.sender],
-            rewardAmount
-        );
+        userStakes[stakeIndex] = userStakes[userStakes.length - 1]; // overwrite it with the last struct
+        userStakes[userStakes.length - 1] = selectedStake; // overwrite the last struct with the struct we want to delete
+        userStakes.pop(); // remove the last struct (which should be the one we want to delete)
+
+        emit Unstaked(msg.sender, block.timestamp, rewardAmount);
     }
 
     /// @notice Returns the staked tokens value in dollars
@@ -113,12 +111,13 @@ contract TokenFarm is ChainlinkClient, Ownable {
         view
         returns (uint256)
     {
-        if (stakingBalance[user] == 0) {
+        StakeSummary storage userStakeSummary = stakeSummaries[user];
+        if (userStakeSummary.balance == 0) {
             return 0;
         }
 
         (uint256 price, uint256 decimals) = getTokenDollarValue();
-        return ((stakingBalance[user] * price) / (10**decimals));
+        return ((userStakeSummary.balance * price) / (10**decimals));
     }
 
     /// @notice Returns the current DAI dollar price from Chailink price feed
@@ -141,16 +140,20 @@ contract TokenFarm is ChainlinkClient, Ownable {
     }
 
     /// @notice Compute how much a user should be rewarded for their stake
-    function computeRewardTokenAmount(address user)
+    function computeRewardTokenAmount(Stake memory selectedStake)
         internal
         view
         returns (uint256)
     {
-        if (stakingBalance[user] == 0) {
+        if (selectedStake.amount == 0) {
             return 0;
         }
 
-        uint256 interest = computeStakeInterest(user, block.timestamp);
+        uint256 interest = computeStakeInterest(
+            selectedStake.amount,
+            selectedStake.since,
+            block.timestamp
+        );
 
         (uint256 price, uint256 decimals) = getTokenDollarValue();
         uint256 interestValue = ((interest * price) / (10**decimals));
@@ -159,12 +162,12 @@ contract TokenFarm is ChainlinkClient, Ownable {
     }
 
     /// @notice Compute the stake interest based on the duration of the active stake
-    function computeStakeInterest(address staker, uint256 endTime)
-        public
-        view
-        returns (uint256)
-    {
-        if (stakingBalance[staker] == 0) {
+    function computeStakeInterest(
+        uint256 amount,
+        uint256 startTime,
+        uint256 endTime
+    ) public pure returns (uint256) {
+        if (amount == 0) {
             return 0;
         }
 
@@ -175,11 +178,9 @@ contract TokenFarm is ChainlinkClient, Ownable {
         // the alghoritm is  seconds = endTime - start stake time (in seconds)
         // hours = seconds / 3600 (seconds /3600) 3600 is an variable in Solidity names hours
         // we then multiply each token by the hours staked , then divide by the rewardPerHour rate
-        uint256 stakerBalance = stakingBalance[staker];
-        uint256 stakerStartTime = stakingStartTime[staker];
-        uint256 stakePeriodInSeconds = endTime - stakerStartTime;
+        uint256 stakePeriodInSeconds = endTime - startTime;
         uint256 stakePeriodInHours = stakePeriodInSeconds / 3600;
-        uint256 stakerBalanceByHours = stakePeriodInHours * stakerBalance;
+        uint256 stakerBalanceByHours = stakePeriodInHours * amount;
         uint256 reward = stakerBalanceByHours / rewardPerHour;
 
         return reward;
