@@ -71,7 +71,7 @@ contract("TokenFarm", async accounts => {
         it("cannot stake not allowed token", async () => {
             try {
                 const amountToStake = tokens("10")
-                await tokenFarm.stakeTokens(amountToStake, dappToken.address, { from: owner })
+                await tokenFarm.stake(amountToStake, dappToken.address, { from: owner })
             } catch (error) {
                 assert.equal(error.reason, "ERC20 Token not allowed");
             }
@@ -79,17 +79,17 @@ contract("TokenFarm", async accounts => {
 
         it("cannot stake empty amount", async () => {
             try {
-                await tokenFarm.stakeTokens(0, mockERC20Token.address, { from: alice })
+                await tokenFarm.stake(0, mockERC20Token.address, { from: alice })
             } catch (error) {
                 assert.equal(error.reason, "Amount cannot be empty");
             }
         });
 
-        it("Alice can stake 50 mERC tokens", async () => {
+        it.only("Alice can stake 50 mERC tokens", async () => {
             const amountToStake = tokens("50")
 
             await mockERC20Token.approve(tokenFarm.address, amountToStake, { from: alice })
-            const result = await tokenFarm.stakeTokens(amountToStake, mockERC20Token.address, { from: alice })
+            const result = await tokenFarm.stake(amountToStake, mockERC20Token.address, { from: alice })
 
             truffleAssert.eventEmitted(
                 result,
@@ -101,19 +101,41 @@ contract("TokenFarm", async accounts => {
                 },
                 "Staked event should have triggered")
 
-            const aliceStakingBalance = await tokenFarm.stakingBalance(alice)
+            const aliceStakingBalance = await tokenFarm.stakeSummaries(alice)
 
-            assert.equal(aliceStakingBalance, amountToStake)
+            assert.equal(50, web3.utils.fromWei(aliceStakingBalance.balance, 'ether'))
         });
 
-        it("Alice wins 0,1 interests after staking 50 tokens for 2 hours", async () => {
+        it.only("Alice can stake again 50 mERC tokens", async () => {
+            const amountToStake = tokens("50")
+
+            await mockERC20Token.approve(tokenFarm.address, amountToStake, { from: alice })
+            const result = await tokenFarm.stake(amountToStake, mockERC20Token.address, { from: alice })
+
+            truffleAssert.eventEmitted(
+                result,
+                "Staked",
+                (ev) => {
+                    // In here we can do our assertion on the ev variable (its the event and will contain the values we emitted)
+                    assert.equal(ev.amount, amountToStake, "Stake amount in event was not correct");
+                    return true
+                },
+                "Staked event should have triggered")
+
+            const aliceStakingBalance = await tokenFarm.stakeSummaries(alice)
+
+            assert.equal(100, web3.utils.fromWei(aliceStakingBalance.balance, 'ether'))
+        });
+
+        it.only("Alice wins 0,2 interests after staking 100 tokens for 2 hours", async () => {
+            const stakedTokens = tokens("100")
             // Now + 2 hours
             const now = Math.floor(Date.now() / 1000);
             const nowPlus2Hours = now + 7200;
 
-            const estimatedInterest = await tokenFarm.computeStakeInterest(alice, nowPlus2Hours)
+            const estimatedInterest = await tokenFarm.computeStakeInterest(stakedTokens, now, nowPlus2Hours)
 
-            assert.equal(0.1, web3.utils.fromWei(estimatedInterest, 'ether'))
+            assert.equal(0.2, web3.utils.fromWei(estimatedInterest, 'ether'))
         });
     });
 });

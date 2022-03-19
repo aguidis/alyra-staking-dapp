@@ -37,9 +37,9 @@ contract TokenFarm is ChainlinkClient, Ownable {
         uint256 rewardBalance;
     }
     /// @notice stakeHolders is used to keep track of the stakes made by each users
-    mapping(address => Stake[]) internal stakeHolders;
+    mapping(address => Stake[]) public stakeHolders;
     /// @notice stakeSummaries is used to aggregate staking information for each users
-    mapping(address => StakeSummary) internal stakeSummaries;
+    mapping(address => StakeSummary) public stakeSummaries;
 
     /// @notice Staked event is triggered whenever a user stakes tokens, address is indexed to make it filterable
     event Staked(address indexed user, uint256 timestamp, uint256 amount);
@@ -49,6 +49,8 @@ contract TokenFarm is ChainlinkClient, Ownable {
         uint256 timestamp,
         uint256 rewardAmount
     );
+
+    event Debug(uint256 amount, bool isOk);
 
     constructor(address _dappTokenAddress) public {
         dappToken = IERC20(_dappTokenAddress);
