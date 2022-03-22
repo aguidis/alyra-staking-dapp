@@ -6,3 +6,5 @@ export const chainMapping = {
     42: 'Kovan',
     1337: 'Ganache',
 }
+
+export const allowedChains = [1337, 42]

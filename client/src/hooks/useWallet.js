@@ -1,12 +1,15 @@
 import { ethers } from 'ethers'
 
 import { useAtom } from 'jotai'
-import { useAtomValue } from 'jotai/utils'
 
-import { web3InstanceAtom, loggedInAccountAtom, accountBalanceAtom } from '../state'
+import {
+    loggedInAccountAtom,
+    accountBalanceAtom,
+    accountDaiBalanceAtom,
+    accountDappBalanceAtom,
+} from '../state'
 
 const useWallet = () => {
-    const web3 = useAtomValue(web3InstanceAtom)
     const [account, setAccount] = useAtom(loggedInAccountAtom)
     const [balance, setBalance] = useAtom(accountBalanceAtom)
 

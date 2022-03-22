@@ -1,18 +1,18 @@
 import { useState, useCallback, useMemo } from 'react'
 
 const useToggle = () => {
-    const [status, setStatus] = useState(true)
+    const [flag, setFlag] = useState(true)
 
-    const toggleStatus = useCallback(() => {
-        setStatus((prevStatus) => !prevStatus)
+    const toggleFlag = useCallback(() => {
+        setFlag((prevStatus) => !prevStatus)
     }, [])
 
     const values = useMemo(
         () => ({
-            status,
-            toggleStatus,
+            flag,
+            toggleFlag,
         }),
-        [status, toggleStatus],
+        [flag, toggleFlag],
     )
 
     return values

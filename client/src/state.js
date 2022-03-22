@@ -25,24 +25,30 @@ export const networkIdAtom = atom(async (get) => {
     return network.chainId
 })
 
-export const contractAtom = atom((get) => {
-    const provider = get(providerAtom)
-    const networkId = get(networkIdAtom)
-    const contractAddress = TokenFarmArtifact.networks[networkId]
+export const contractAtom = atom(null)
+export const contractWriteAtom = atom(
+    null, // it's a convention to pass `null` for the first argument
+    (get, set, chainId) => {
+        const provider = get(providerAtom)
 
-    const signer = provider.getSigner()
+        let contract = null
 
-    return new ethers.Contract(contractAddress, TokenFarmArtifact.abi, signer)
-})
+        if (chainId in TokenFarmArtifact.networks) {
+            const contractAddress = TokenFarmArtifact.networks[chainId]
+
+            const signer = provider.getSigner()
+
+            contract = new ethers.Contract(contractAddress, TokenFarmArtifact.abi, signer)
+        }
+
+        set(contractAtom, contract)
+    },
+)
 
 export const loggedInAccountAtom = atom(null)
 export const accountBalanceAtom = atom(0)
 export const accountDaiBalanceAtom = atom(0)
 export const accountDappBalanceAtom = atom(0)
-
-export const tokenFarmContractAtom = atom(async (get) => {
-    // TODO avec ethers.js
-})
 
 export const contractOwnerAtom = atom(async (get) => {
     const contract = get(tokenFarmContractAtom)
