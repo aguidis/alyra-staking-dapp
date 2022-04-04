@@ -3,5 +3,8 @@ module.exports = {
     theme: {
         extend: {},
     },
+    variants: {
+        backgroundColor: ({ after }) => after(['disabled']),
+    },
     plugins: [],
 }

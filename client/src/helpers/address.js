@@ -1,11 +1,7 @@
 import { BigNumber } from 'ethers'
-import { getAddress } from '@ethersproject/address'
+import { ethers } from 'ethers'
 
-export const shortenAddress = (address) => {
-    if (!address) {
-        return '-'
-    }
-
+export function shortenAddress(address) {
     return `${address.slice(0, 6)}...${address.slice(address.length - 4, address.length)}`
 }
 
@@ -34,7 +30,7 @@ export function addressEqual(firstAddress, secondAddress) {
     }
 
     try {
-        return getAddress(firstAddress) === getAddress(secondAddress)
+        return ethers.utils.getAddress(firstAddress) === ethers.utils.getAddress(secondAddress)
     } catch {
         throw new TypeError("Invalid input, address can't be parsed")
     }

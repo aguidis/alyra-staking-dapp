@@ -18,7 +18,7 @@ contract TokenFarm is ChainlinkClient, Ownable {
     /// @notice It represents 0.001, since we only use integer numbers. This will give users 0.1% reward for each staked token / H
     uint16 constant rewardPerHour = 1000;
 
-    /// @notice Only a spcific ERC-20 token is allowed to be staked in this contract
+    /// @notice Only a specific ERC-20 token is allowed to be staked in this contract
     address public allowedToken;
     /// @notice Chainlink price feed to chack the value of our staked token in dollars (DAI/USD)
     address public priceFeedAddress;
@@ -54,6 +54,10 @@ contract TokenFarm is ChainlinkClient, Ownable {
 
     constructor(address _dappTokenAddress) public {
         dappToken = IERC20(_dappTokenAddress);
+    }
+
+    function approveSpender(uint256 amount, address token) public {
+        IERC20(token).approve(address(this), amount);
     }
 
     /// @notice stakeTokens is used to stake a token amount from a user
@@ -96,6 +100,9 @@ contract TokenFarm is ChainlinkClient, Ownable {
         userStakeSummary.balance =
             userStakeSummary.balance -
             selectedStake.amount;
+        userStakeSummary.rewardBalance =
+            userStakeSummary.rewardBalance +
+            rewardAmount;
 
         // Finally remove sender from our stakers array
         Stake[] storage userStakes = stakeHolders[msg.sender];
@@ -186,5 +193,15 @@ contract TokenFarm is ChainlinkClient, Ownable {
         uint256 reward = stakerBalanceByHours / rewardPerHour;
 
         return reward;
+    }
+
+    /// @notice Return the current sender DappToken balance
+    function getDappTokenBalance() public view returns (uint256) {
+        return dappToken.balanceOf(msg.sender);
+    }
+
+    /// @notice Return the all stakes for a specific user
+    function getStakes() public view returns (Stake[] memory) {
+        return stakeHolders[msg.sender];
     }
 }

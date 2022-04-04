@@ -30,7 +30,10 @@ migrate-kovan: ## Deploy contracts on Kovan branch
 
 ## —— Dapp ————————————————————————————————————————————————————————
 run: ## Start local server
-	$(NPM) run start --prefix client
+	$(NPM) run dev --prefix client
 
 build: ## Prepare assets for production
 	$(NPM) run build --prefix client
+
+format: ## Format assets
+	$(NPM) run format --prefix client

@@ -1,10 +1,12 @@
+import { ethers } from 'ethers'
+
+import { shortenAddress } from '../../helpers/address'
+
 import useWallet from '../../hooks/useWallet'
 import Identicon from './Identicon'
 
 export default function ConnectButton(props) {
-    const { account, connectWallet } = useWallet()
-
-    const toto = '0xe292de2CB2240C3c2fd2fAbc00Ff6521eC0a5203'
+    const { account, balance, connectWallet } = useWallet()
 
     /**
      * TODO add popin
@@ -12,7 +14,7 @@ export default function ConnectButton(props) {
      * Wrong Network
      * Please connect to a supported network in the dropdown menu or in your wallet.
      */
-    if (props.farmTokenInstance === null) {
+    if (props.tokenFarmInstance === null) {
         return (
             <button className="mb-3 py-2.5 px-6 inline-flex items-center bg-red-500 rounded-full font-medium text-center text-white">
                 <svg
@@ -34,17 +36,17 @@ export default function ConnectButton(props) {
         )
     }
 
-    return toto ? (
+    return account ? (
         <div className="mb-3 p-1 inline-flex items-center bg-gray-900 rounded-full font-medium text-center text-white">
-            <p className="px-2">99.95 ETH</p>
+            <p className="px-2">{balance} ETH</p>
 
             <button
                 type="button"
                 className="inline-flex items-center px-5 py-2 text-sm font-medium text-center text-white bg-gray-700 rounded-full hover:bg-gray-800 focus:ring-4 focus:ring-gray-300"
             >
-                {`${toto.slice(0, 6)}...${toto.slice(toto.length - 4, toto.length)}`}
+                {shortenAddress(account)}
                 <span className="inline-flex justify-center items-center ml-2">
-                    <Identicon account={toto} />
+                    <Identicon account={account} />
                 </span>
             </button>
         </div>

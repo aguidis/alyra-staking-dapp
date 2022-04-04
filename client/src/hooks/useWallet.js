@@ -1,40 +1,40 @@
 import { ethers } from 'ethers'
 
-import { useAtom } from 'jotai'
+import { useAtom, useSetAtom } from 'jotai'
+import { useAtomValue } from 'jotai/utils'
 
 import {
+    web3ProviderAtom,
     loggedInAccountAtom,
     accountBalanceAtom,
-    accountDaiBalanceAtom,
-    accountDappBalanceAtom,
+    accountBalanceWriteAtom,
+    accountDaiBalanceWriteAtom,
+    accountDappBalanceWriteAtom,
+    accountStakesWriteAtom,
 } from '../state'
 
 const useWallet = () => {
+    const web3Provider = useAtomValue(web3ProviderAtom)
     const [account, setAccount] = useAtom(loggedInAccountAtom)
-    const [balance, setBalance] = useAtom(accountBalanceAtom)
+    const balance = useAtomValue(accountBalanceAtom)
+    const setBalance = useSetAtom(accountBalanceWriteAtom)
+    const setDaiBalance = useSetAtom(accountDaiBalanceWriteAtom)
+    const setDappBalance = useSetAtom(accountDappBalanceWriteAtom)
+    const setStakes = useSetAtom(accountStakesWriteAtom)
 
     async function connectWallet() {
         try {
-            // A Web3Provider wraps a standard Web3 provider, which is
-            // what MetaMask injects as window.ethereum into each page
-            const provider = new ethers.providers.Web3Provider(window.ethereum)
-
             // MetaMask requires requesting permission to connect users accounts
-            await provider.send('eth_requestAccounts', [])
+            await web3Provider.send('eth_requestAccounts', [])
 
-            // TODO load tout cas dans state.js et gerer erreur avec error mes couilles boudaries
+            const accounts = await web3Provider.listAccounts()
+            const account = accounts[0]
 
-            // ethereum.enable(); (DEPRECATED), do instead :
-            // @link https://docs.metamask.io/guide/ethereum-provider.html#ethereum-enable-deprecated
-            // why returned accounts are lower cased ?
-            // @link https://github.com/MetaMask/metamask-extension/issues/10671
-            await window.ethereum.request({ method: 'eth_requestAccounts' })
-
-            const accounts = await web3.eth.getAccounts()
-            const balance = await web3.eth.getBalance(accounts[0])
-
-            setAccount(accounts[0])
-            setBalance(balance)
+            setAccount(account)
+            setBalance()
+            setDaiBalance()
+            setDappBalance()
+            setStakes()
         } catch (err) {
             if (err.code === 4001) {
                 // EIP-1193 userRejectedRequest error
@@ -53,16 +53,14 @@ const useWallet = () => {
             // MetaMask is locked or the user has not connected any accounts
             alert('Please connect to MetaMask.')
         } else if (accounts[0] !== account) {
-            const balance = await web3.eth.getBalance(accounts[0])
+            const account = ethers.utils.getAddress(accounts[0])
 
-            setAccount(accounts[0])
-            setBalance(balance)
+            setAccount(account)
+            setBalance()
+            setDaiBalance()
+            setDappBalance()
+            setStakes()
         }
-    }
-
-    function logOut() {
-        setAccount(null)
-        setBalance(null)
     }
 
     return {
@@ -71,7 +69,6 @@ const useWallet = () => {
         balance,
         connectWallet,
         onAccountChange,
-        logOut,
     }
 }
 

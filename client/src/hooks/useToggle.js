@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 
 const useToggle = () => {
-    const [flag, setFlag] = useState(true)
+    const [flag, setFlag] = useState(false)
 
     const toggleFlag = useCallback(() => {
         setFlag((prevStatus) => !prevStatus)
