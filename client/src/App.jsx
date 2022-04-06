@@ -205,7 +205,8 @@ export default function App() {
             <section className="bg-white rounded-3xl border shadow-xl p-8 pt-4 w-2/6 mb-6">
                 <header className="flex justify-between mb-4">
                     <div className="flex items-center">
-                        <div className="flex items-center bg-[#f4b731] text-white rounded-full mr-2">
+                        <small className="font-semibold text-gray-400">Balance</small>
+                        <div className="flex items-center bg-[#f4b731] text-white rounded-full mx-2">
                             <img src={DaiTokenLogo} className="inline ml-2" />
                             <span className="ml-1 mr-3">{accountDaiBalance}</span>
                         </div>
@@ -232,12 +233,14 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center">
-                        <h2 className="font-semibold text-gray-400">DAPP</h2>
+                        <small className="font-semibold text-gray-400">Reward token</small>
 
-                        <div className="flex items-center bg-[#f4b731] text-white rounded-full ml-2">
+                        <div className="flex items-center bg-[#f4b731] text-white rounded-full mx-2">
                             <img src={GenericTokenLogo} className="inline ml-2" />
                             <span className="ml-1 mr-3">{accountDappBalance}</span>
                         </div>
+
+                        <h2 className="font-semibold text-gray-400">DAPP</h2>
                     </div>
                 </header>
                 <main>
@@ -456,10 +459,10 @@ export default function App() {
                             </h3>
 
                             <h4 className="font-medium text-gray-900 dark:text-white">
-                                Estimated profit :
-                                <span className="text-green-500 ml-2">{interestAmount}</span>
+                                Estimated DAI profit :
+                                <span className="text-green-500 ml-2">+{interestAmount}</span>
                                 <span className="text-sm text-green-500 ml-1">
-                                    (+{interestPercent}%)
+                                    ({interestPercent}%)
                                 </span>
                             </h4>
 
