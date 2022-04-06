@@ -129,12 +129,10 @@ export const accountStakesWriteAtom = atom(null, async (get, set) => {
 
     const formattedStakes = stakes.map((stake) => {
         return {
-            since: new Date(stake.since.toNumber() * 1000).toLocaleString(),
+            since: new Date(stake.since.toNumber() * 1000),
             amount: parseInt(ethers.utils.formatEther(stake.amount), 10),
         }
     })
-
-    console.log('bg', formattedStakes)
 
     set(accountStakesAtom, formattedStakes)
 })
@@ -157,3 +155,6 @@ export const isOwnerAtom = atom((get) => {
 })
 
 export const stakeAmountAtom = atom(0)
+export const stakeIndexToWithdrawAtom = atom(null)
+export const interestAmountAtom = atom(0)
+export const interestPercentAtom = atom(0)
