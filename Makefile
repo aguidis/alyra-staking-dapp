@@ -35,5 +35,8 @@ run: ## Start local server
 build: ## Prepare assets for production
 	$(NPM) run build --prefix client
 
+preview: ## will boot up local static web server that serves the files from dist
+	$(NPM) run preview --prefix client
+
 format: ## Format assets
 	$(NPM) run format --prefix client

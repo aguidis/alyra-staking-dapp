@@ -25371,6 +25371,12 @@
     "version": "0.8.13+commit.abaa5c0e.Emscripten.clang"
   },
   "networks": {
+    "42": {
+      "events": {},
+      "links": {},
+      "address": "0xd188E05f20983Dc3FCBfcCE17F202d707FdfD96F",
+      "transactionHash": "0x3e7b0406b18619235a5fdf473101707c2973bb03015a578a2f4d9ffb12d228e9"
+    },
     "1337": {
       "events": {
         "0xe1fe3afa0f7f761ff0a8b89086790efd5140d2907ebd5b7ff6bfcb5e075fd4c5": {
@@ -25587,7 +25593,7 @@
     }
   },
   "schemaVersion": "3.4.3",
-  "updatedAt": "2022-04-03T18:03:21.677Z",
+  "updatedAt": "2022-04-09T13:48:41.826Z",
   "networkType": "ethereum",
   "devdoc": {
     "author": "Adrien Guidis",
