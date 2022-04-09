@@ -180,14 +180,10 @@ export default function App() {
         console.log('withdraw', stakeIndexToWithdraw)
 
         try {
-            const stakeAmounWei = ethers.utils.parseEther(stakeAmount.toString())
-            await stakableTokenContract.approve(tokenFarmContract.address, stakeAmounWei)
-
-            const allowedTokenAddress = await tokenFarmContract.allowedToken()
-            await tokenFarmContract.stake(stakeAmounWei.toString(), allowedTokenAddress)
+            await tokenFarmContract.withdraw(stakeIndexToWithdraw)
         } catch (err) {
-            toast.error(`Staking attempt failed : ${err.message}`)
-            toggleStakingProgress()
+            toast.error(`Withdraw attempt failed : ${err.message}`)
+            toggleWithdrawProgress()
         }
     }
 
@@ -233,7 +229,7 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center">
-                        <small className="font-semibold text-gray-400">Reward token</small>
+                        <small className="font-semibold text-gray-400">Reward</small>
 
                         <div className="flex items-center bg-[#f4b731] text-white rounded-full mx-2">
                             <img src={GenericTokenLogo} className="inline ml-2" />
