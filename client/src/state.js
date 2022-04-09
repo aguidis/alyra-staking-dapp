@@ -112,7 +112,7 @@ export const accountDappBalanceWriteAtom = atom(null, async (get, set) => {
 
     const dappBalance = await contract.getDappTokenBalance()
 
-    set(accountDappBalanceAtom, parseInt(ethers.utils.formatEther(dappBalance), 10))
+    set(accountDappBalanceAtom, parseFloat(ethers.utils.formatEther(dappBalance)).toFixed(3))
 })
 
 export const accountStakesWriteAtom = atom(null, async (get, set) => {

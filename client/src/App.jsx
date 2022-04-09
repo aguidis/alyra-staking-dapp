@@ -94,6 +94,7 @@ export default function App() {
             setStakes()
 
             toast.success('Coins staked, Congratulations !')
+            // TODO update stake balance
             toggleStakingProgress()
             toggleStakingModalShow()
             setStakeAmount(0)
@@ -104,6 +105,7 @@ export default function App() {
             setStakes()
 
             toast.success('Coins unstaked, Congratulations !')
+            // TODO update reward balance
             toggleWithdrawProgress()
             toggleWithdrawModalShow()
         })
@@ -115,7 +117,9 @@ export default function App() {
         }
     }, [tokenFarmContract])
 
-    const increaseStakeAmount = () => {
+    const increaseStakeAmount = (event) => {
+        event.preventDefault()
+
         if (accountDaiBalance === 0) {
             return
         }
@@ -132,7 +136,9 @@ export default function App() {
         setStakeAmount(newAmount <= accountDaiBalance ? newAmount : stakeAmount)
     }
 
-    const decreaseStakeAmount = () => {
+    const decreaseStakeAmount = (event) => {
+        event.preventDefault()
+
         const newAmount = stakeAmount - 10 <= 0 ? 0 : stakeAmount - 10
         setStakeAmount(newAmount)
     }
