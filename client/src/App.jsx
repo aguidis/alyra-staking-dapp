@@ -35,7 +35,7 @@ export default function App() {
     const { flag: showWithdrawModal, toggleFlag: toggleWithdrawModalShow } = useToggle()
     const { flag: withdrawInProgress, toggleFlag: toggleWithdrawProgress } = useToggle()
 
-    const { onAccountChange } = useWallet()
+    const { updateAssetsBalance, onAccountChange } = useWallet()
 
     const web3Provider = useAtomValue(web3ProviderAtom)
     const networkId = useAtomValue(networkIdAtom)
@@ -45,7 +45,6 @@ export default function App() {
     const accountDaiBalance = useAtomValue(accountDaiBalanceAtom)
     const accountDappBalance = useAtomValue(accountDappBalanceAtom)
     const accountStakes = useAtomValue(accountStakesAtom)
-    const setStakes = useSetAtom(accountStakesWriteAtom)
 
     const [stakeAmount, setStakeAmount] = useAtom(stakeAmountAtom)
     const [stakeIndexToWithdraw, setStakeIndexToWithdraw] = useAtom(stakeIndexToWithdrawAtom)
@@ -73,7 +72,6 @@ export default function App() {
 
     // Handle account change
     useEffect(() => {
-        // checker réponse à mon comm https://ethereum.stackexchange.com/questions/102078/detecting-accountschanged-and-chainchanged-with-ethersjs
         web3Provider.provider.on('accountsChanged', onAccountChange)
 
         // remove all listeners when the component is unmounted
@@ -91,23 +89,29 @@ export default function App() {
         // @see https://github.com/ethers-io/ethers.js/issues/1504#issuecomment-826140461
         tokenFarmContract.on('Staked', (sender, timestamp, amount) => {
             console.log(`Staked by #${sender}, on ${timestamp}, with ${amount}`)
-            setStakes()
 
             toast.success('Coins staked, Congratulations !')
-            // TODO update stake balance
+
+            // Reset local state
             toggleStakingProgress()
             toggleStakingModalShow()
             setStakeAmount(0)
+
+            // Update balance
+            updateAssetsBalance()
         })
 
         tokenFarmContract.on('Unstaked', (sender, timestamp, reward) => {
             console.log(`Unstaked by #${sender}, on ${timestamp}, with reward ${reward}`)
-            setStakes()
 
             toast.success('Coins unstaked, Congratulations !')
-            // TODO update reward balance
+
+            // Reset local state
             toggleWithdrawProgress()
             toggleWithdrawModalShow()
+
+            // Update balance
+            updateAssetsBalance()
         })
 
         // remove all listeners when the component is unmounted
@@ -182,8 +186,6 @@ export default function App() {
 
     const withdraw = async () => {
         toggleWithdrawProgress()
-
-        console.log('withdraw', stakeIndexToWithdraw)
 
         try {
             await tokenFarmContract.withdraw(stakeIndexToWithdraw)

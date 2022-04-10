@@ -63,11 +63,19 @@ const useWallet = () => {
         }
     }
 
+    const updateAssetsBalance = () => {
+        setBalance()
+        setDaiBalance()
+        setDappBalance()
+        setStakes
+    }
+
     return {
         web3,
         account,
         balance,
         connectWallet,
+        updateAssetsBalance,
         onAccountChange,
     }
 }
