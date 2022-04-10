@@ -67,7 +67,7 @@ const useWallet = () => {
         setBalance()
         setDaiBalance()
         setDappBalance()
-        setStakes
+        setStakes()
     }
 
     return {

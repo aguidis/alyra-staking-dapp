@@ -80,47 +80,6 @@ export default function App() {
         }
     }, [])
 
-    // Handle TokenFarm events
-    useEffect(() => {
-        if (tokenFarmContract === null) {
-            return
-        }
-
-        // @see https://github.com/ethers-io/ethers.js/issues/1504#issuecomment-826140461
-        tokenFarmContract.on('Staked', (sender, timestamp, amount) => {
-            console.log(`Staked by #${sender}, on ${timestamp}, with ${amount}`)
-
-            toast.success('Coins staked, Congratulations !')
-
-            // Reset local state
-            toggleStakingProgress()
-            toggleStakingModalShow()
-            setStakeAmount(0)
-
-            // Update balance
-            updateAssetsBalance()
-        })
-
-        tokenFarmContract.on('Unstaked', (sender, timestamp, reward) => {
-            console.log(`Unstaked by #${sender}, on ${timestamp}, with reward ${reward}`)
-
-            toast.success('Coins unstaked, Congratulations !')
-
-            // Reset local state
-            toggleWithdrawProgress()
-            toggleWithdrawModalShow()
-
-            // Update balance
-            updateAssetsBalance()
-        })
-
-        // remove all listeners when the component is unmounted
-        return () => {
-            tokenFarmContract.removeAllListeners('Staked')
-            tokenFarmContract.removeAllListeners('Unstaked')
-        }
-    }, [tokenFarmContract])
-
     const increaseStakeAmount = (event) => {
         event.preventDefault()
 
@@ -151,11 +110,25 @@ export default function App() {
         toggleStakingProgress()
 
         try {
+            const startBlockNumber = await web3Provider.getBlockNumber()
+
             const stakeAmounWei = ethers.utils.parseEther(stakeAmount.toString())
             await stakableTokenContract.approve(tokenFarmContract.address, stakeAmounWei)
 
             const allowedTokenAddress = await tokenFarmContract.allowedToken()
-            await tokenFarmContract.stake(stakeAmounWei.toString(), allowedTokenAddress)
+            const tx = await tokenFarmContract.stake(stakeAmounWei.toString(), allowedTokenAddress)
+
+            // Wait for one block confirmation. The transaction has been mined at this point.
+            await tx.wait()
+            toast.success('Coins staked, Congratulations !')
+
+            // Reset local state
+            toggleStakingProgress()
+            toggleStakingModalShow()
+            setStakeAmount(0)
+
+            // Update balance
+            updateAssetsBalance()
         } catch (err) {
             toast.error(`Staking attempt failed : ${err.message}`)
             toggleStakingProgress()
@@ -188,7 +161,18 @@ export default function App() {
         toggleWithdrawProgress()
 
         try {
-            await tokenFarmContract.withdraw(stakeIndexToWithdraw)
+            const tx = await tokenFarmContract.withdraw(stakeIndexToWithdraw)
+
+            // Wait for one block confirmation. The transaction has been mined at this point.
+            await tx.wait()
+            toast.success('Coins unstaked, Congratulations !')
+
+            // Reset local state
+            toggleWithdrawProgress()
+            toggleWithdrawModalShow()
+
+            // Update balance
+            updateAssetsBalance()
         } catch (err) {
             toast.error(`Withdraw attempt failed : ${err.message}`)
             toggleWithdrawProgress()
@@ -263,7 +247,7 @@ export default function App() {
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="text-sm divide-y divide-gray-100">
+                            <tbody className="text-sm divide-y divide-gray-100 h-5 overflow-y-auto">
                                 {accountStakes.map((stake, index) => (
                                     <tr key={index}>
                                         <td className="p-2 whitespace-nowrap">
