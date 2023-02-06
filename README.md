@@ -1,18 +1,18 @@
-# DÉFI#4 - Staking dapp
+# CHALLENGE #4 - Staking dapp
 
-*Lien du projet* : https://aguidis.github.io/alyra-staking-dapp/
+*Project link*: https://aguidis.github.io/alyra-staking-dapp/
 
-*Testnet* : KOVAN
+*Testnet*: KOVAN
 
-Un utilisateur pourra staker un token ERC-20 spécifique et pourra générer des intérêts en fonction de la période pendant laquelle ses tokens sont stakés.
+A user will be able to stake a specific ERC-20 token and will be able to generate interest based on the period during which his tokens are staked.
 
-## Règles
-- Le token autorisé est le token ERC-20 [FAU](https://erc20faucet.com/)
+## Rules
+- The authorized token is the ERC-20 token [FAU](https://erc20faucet.com/)
 - 1 FAU = 1 DAI
-- Le paire DAI / USD de Chainlink est utilisée (Price data feed)
-- Le token de récompense est celui que nous avons créé : DAPP
-- 1 DAPP = 100$
-- Le contrat offre 0.1% de reward par heure
+- The DAI / USD pair of Chainlink is used (Price data feed)
+- The reward token is the one we created : DAPP
+- 1 DAPP = $100
+- The contract offers 0.1% reward per hour
 
 ## Stack
 - Ethereum in memory blockchain, Ganache Version 2.5.4 (GUI or CLI)
